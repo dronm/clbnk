@@ -9,8 +9,8 @@ import (
 )
 
 // importDocumentTypes contains all documents for import.
-var importDocumentMaps = map[DocumentType]reflect.Value{DOCUMENT_TYPE_BANK_ORDER: reflect.ValueOf(&BankOrderDocument{}),
-	DOCUMENT_TYPE_PP: reflect.ValueOf(&PPDocument{}),
+var importDocumentMaps = map[DocumentType]reflect.Type{DOCUMENT_TYPE_BANK_ORDER: reflect.TypeOf(BankOrderDocument{}),
+	DOCUMENT_TYPE_PP: reflect.TypeOf(PPDocument{}),
 }
 
 // Some error texts.
@@ -73,7 +73,8 @@ func (e *BankImport) Unmarshal(data []byte) error {
 	data_str := strings.ReplaceAll(string(data_dec), "\r\n", "\n")
 	lines = strings.Split(data_str, "\n")
 	n := 0
-	return unmarshal(lines, &n, reflect.ValueOf(e), FOOTER)
+	res := unmarshal(lines, &n, reflect.ValueOf(e), FOOTER)
+	return res
 }
 
 func unmarshal(lines []string, lineNum *int, v reflect.Value, endSection string) error { // Ensure dataPtr is a pointer to a struct
@@ -158,18 +159,20 @@ func setFieldValue(field reflect.Value, value string, isElemStart bool, endSecti
 			//documents
 			if ok := slice_elem.Type().Implements(reflect.TypeOf((*BankImportDocument)(nil)).Elem()); ok {
 				//determine document type by value
-				var doc_type reflect.Value
+				var doc_type reflect.Type
 				for i, d_tp := range DocumentTypeValues() {
 					if d_tp == value {
 						doc_type = importDocumentMaps[DocumentType(i)]
 						break
 					}
 				}
-				if reflect.Zero(reflect.TypeOf(doc_type)) == doc_type {
+				// if reflect.Zero(reflect.TypeOf(doc_type)) == doc_type {
+				if doc_type == nil {
 					return fmt.Errorf("document type not found by ID %s", value)
 				}
 				// slice_elem = reflect.ValueOf(&BankOrderDocument{})
-				slice_elem = doc_type
+				//create a new instance of doc_type
+				slice_elem = reflect.New(doc_type)
 				if err := unmarshal(lines, lineNum, slice_elem.Elem().Addr(), endSection); err != nil {
 					return err
 				}
@@ -186,9 +189,7 @@ func setFieldValue(field reflect.Value, value string, isElemStart bool, endSecti
 			new_slice.Index(slice_len).Set(slice_elem)
 			field.Set(new_slice)
 
-			// fmt.Println("new slice len=", field.Len())
 			return nil
-
 		}
 		return fmt.Errorf("tag 'bankElemStart' must belong to a struct or a slice")
 	}

@@ -88,6 +88,7 @@ func unmarshal(lines []string, lineNum *int, v reflect.Value, endSection string)
 		}
 		line := lines[*lineNum]
 		if line == "" {
+			*lineNum++
 			continue
 		}
 
@@ -113,7 +114,7 @@ func unmarshal(lines []string, lineNum *int, v reflect.Value, endSection string)
 			continue
 		}
 
-		// fmt.Println("ID:", field_id, "VAL:", field_val)
+		fmt.Println("ID:", field_id, "VAL:", field_val)
 		if err := setFieldValue(struct_field, field_val, field_type == FIELD_TYPE_ELEM_START, sec_end, lines, lineNum); err != nil {
 			return err
 		}
